@@ -14,38 +14,38 @@ int sc_main(int argc, char* argv[]) {
     const int HIDDEN_SIZE = 4;
     const int NUM_CLASSES = 2;
 
-    // سیگنال‌های ورودی
+    
     sc_signal<float>        in_sig[INPUT_SIZE];
     sc_signal<unsigned int> label_sig;
     sc_signal<sc_logic>     train_sig;
 
-    // ساخت MLP
+    
     MLP<INPUT_SIZE, HIDDEN_SIZE, NUM_CLASSES, 0, SIGMOID, SOFTMAX> mlp("mlp", 0.5f);
 
-    // bind پورت‌ها
+    
     for (int i = 0; i < INPUT_SIZE; i++)
         mlp.inputs[i].bind(in_sig[i]);
     mlp.label.bind(label_sig);
     mlp.train_signal.bind(train_sig);
 
-    // مقداردهی تصادفی وزن‌ها
+    
     mlp.randomize_weights(-1.0f, 1.0f);
     mlp.print_architecture();
 
-    // ============================================================
-    // دیتاست XOR
-    // ============================================================
+    
+    
+    
     float X[4][2] = {
         {0.0f, 0.0f},
         {0.0f, 1.0f},
         {1.0f, 0.0f},
         {1.0f, 1.0f}
     };
-    unsigned int Y[4] = {0, 1, 1, 0};  // XOR truth table
+    unsigned int Y[4] = {0, 1, 1, 0};  
 
-    // ============================================================
-    // آموزش
-    // ============================================================
+    
+    
+    
     const int EPOCHS = 2000;
     train_sig.write(SC_LOGIC_0);
 
@@ -56,27 +56,27 @@ int sc_main(int argc, char* argv[]) {
         float epoch_loss = 0.0f;
 
         for (int s = 0; s < 4; s++) {
-            // ----- Forward pass -----
+            
             in_sig[0].write(X[s][0]);
             in_sig[1].write(X[s][1]);
             label_sig.write(Y[s]);
             train_sig.write(SC_LOGIC_0);
             sc_start(1, SC_NS);
 
-            // محاسبه loss (cross-entropy)
+            
             vector<float> out = mlp.predict();
             int target = Y[s];
-            float p = max(out[target], 1e-7f);  // جلوگیری از log(0)
+            float p = max(out[target], 1e-7f);  
             epoch_loss -= log(p);
 
-            // ----- Training step -----
+            
             train_sig.write(SC_LOGIC_1);
             sc_start(1, SC_NS);
             train_sig.write(SC_LOGIC_0);
             sc_start(1, SC_NS);
         }
 
-        // چاپ progress هر 200 epoch
+        
         if ((epoch + 1) % 200 == 0 || epoch == 0) {
             cout << "Epoch " << setw(4) << (epoch + 1)
                  << " | Avg Loss: " << fixed << setprecision(4) << (epoch_loss / 4.0f)
@@ -84,9 +84,9 @@ int sc_main(int argc, char* argv[]) {
         }
     }
 
-    // ============================================================
-    // ارزیابی نهایی
-    // ============================================================
+    
+    
+    
     cout << "\n========================================" << endl;
     cout << " Final Evaluation" << endl;
     cout << "========================================" << endl;
