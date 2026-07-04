@@ -1,119 +1,50 @@
-#include "src/MLP.hpp"
-#include <iostream>
-#include <iomanip>
 
-using namespace std;
-
-int sc_main(int argc, char* argv[]) {
-
-    cout << "\n========================================" << endl;
-    cout << " MLP XOR Example in SystemC" << endl;
-    cout << "========================================\n" << endl;
-
-    const int INPUT_SIZE  = 2;
-    const int HIDDEN_SIZE = 4;
-    const int NUM_CLASSES = 2;
-
+class MyMLP : public AbstractMLP {
+public:
     
-    sc_signal<float>        in_sig[INPUT_SIZE];
-    sc_signal<unsigned int> label_sig;
-    sc_signal<sc_logic>     train_sig;
+    Layer<8, 16, 1, RELU>*   hidden_layer1;
+    Layer<16, 16, 1, RELU>*  hidden_layer2;
+    OutputLayer<16, 3, 1, SOFTMAX>* output_layer;
 
+    sc_vector<sc_in<float>> mlp_inputs;
     
-    MLP<INPUT_SIZE, HIDDEN_SIZE, NUM_CLASSES, 0, SIGMOID, SOFTMAX> mlp("mlp", 0.5f);
+    sc_in<unsigned int> label;
 
-    
-    for (int i = 0; i < INPUT_SIZE; i++)
-        mlp.inputs[i].bind(in_sig[i]);
-    mlp.label.bind(label_sig);
-    mlp.train_signal.bind(train_sig);
+    MyMLP(sc_module_name name, sc_in<unsigned int>& label_in) 
+        : AbstractMLP(name), 
+          mlp_inputs("mlp_inputs", 8),
+          label("label") {
 
-    
-    mlp.randomize_weights(-1.0f, 1.0f);
-    mlp.print_architecture();
+        
+        label.bind(label_in);
 
-    
-    
-    
-    float X[4][2] = {
-        {0.0f, 0.0f},
-        {0.0f, 1.0f},
-        {1.0f, 0.0f},
-        {1.0f, 1.0f}
-    };
-    unsigned int Y[4] = {0, 1, 1, 0};  
+        
+        hidden_layer1 = new Layer<8, 16, 1, RELU>("hidden1");
+        hidden_layer2 = new Layer<16, 16, 1, RELU>("hidden2");
+        output_layer  = new OutputLayer<16, 3, 1, SOFTMAX>("output", label); 
 
-    
-    
-    
-    const int EPOCHS = 2000;
-    train_sig.write(SC_LOGIC_0);
+        
+        layers.push_back(hidden_layer1);
+        layers.push_back(hidden_layer2);
+        layers.push_back(output_layer);
 
-    cout << "\nStarting training..." << endl;
-
-    for (int epoch = 0; epoch < EPOCHS; epoch++) {
-
-        float epoch_loss = 0.0f;
-
-        for (int s = 0; s < 4; s++) {
-            
-            in_sig[0].write(X[s][0]);
-            in_sig[1].write(X[s][1]);
-            label_sig.write(Y[s]);
-            train_sig.write(SC_LOGIC_0);
-            sc_start(1, SC_NS);
-
-            
-            vector<float> out = mlp.predict();
-            int target = Y[s];
-            float p = max(out[target], 1e-7f);  
-            epoch_loss -= log(p);
-
-            
-            train_sig.write(SC_LOGIC_1);
-            sc_start(1, SC_NS);
-            train_sig.write(SC_LOGIC_0);
-            sc_start(1, SC_NS);
+        
+        for (int i = 0; i < 8; ++i) {
+            hidden_layer1->get_input_port(i).bind(mlp_inputs[i]);
         }
 
         
-        if ((epoch + 1) % 200 == 0 || epoch == 0) {
-            cout << "Epoch " << setw(4) << (epoch + 1)
-                 << " | Avg Loss: " << fixed << setprecision(4) << (epoch_loss / 4.0f)
-                 << endl;
-        }
+        build_and_connect();
     }
 
-    
-    
-    
-    cout << "\n========================================" << endl;
-    cout << " Final Evaluation" << endl;
-    cout << "========================================" << endl;
-    cout << " Input    | Target | Predicted | Output Values" << endl;
-    cout << "----------|--------|-----------|----------------------" << endl;
-
-    int correct = 0;
-    train_sig.write(SC_LOGIC_0);
-
-    for (int s = 0; s < 4; s++) {
-        in_sig[0].write(X[s][0]);
-        in_sig[1].write(X[s][1]);
-        sc_start(1, SC_NS);
-
-        vector<float> out = mlp.predict();
-        int pred = mlp.predict_class();
-
-        cout << " [" << X[s][0] << "," << X[s][1] << "]  |   "
-             << Y[s] << "    |     " << pred << "     | ["
-             << fixed << setprecision(4) << out[0] << ", "
-             << setprecision(4) << out[1] << "]" << endl;
-
-        if (pred == (int)Y[s]) correct++;
+    void forward() override {
+        
+        
     }
 
-    cout << "\nAccuracy: " << correct << "/4 (" << (correct * 100 / 4) << "%)" << endl;
-    cout << "========================================\n" << endl;
-
-    return 0;
-}
+    ~MyMLP() {
+        delete hidden_layer1;
+        delete hidden_layer2;
+        delete output_layer;
+    }
+};
