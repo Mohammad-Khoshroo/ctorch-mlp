@@ -25,8 +25,8 @@ public:
     vector<float> weights;
 
     // backpropagation memory for saving forward-pass
-    float last_product;     // weight-sum (z)
-    float last_activation;  // activation (a)
+    float last_product;     // z = sum(w*x) + bias 
+    float last_activation;  // a = f(z)
 
 private:
     void compute();
